@@ -1,22 +1,31 @@
 const jwt = require('jsonwebtoken')
-const { promisify } = require('util')
 const authConfig = require('../config/auth')
 
-module.exports = {
-  async sotre(req, res, next) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ error: 'Token not provided' });
-    }
-
-    const [, token] = authHeader.split(' ');
-
-    try {
-      const decoded = await promisify(jwt.verify)(token, authConfig.secret);
-      req.clientId = decoded.id;
-      return next();
-    } catch (err) {
-      return res.status(401).json({ error: 'Token invalid' });
-    }
+module.exports = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Token not provided' });
   }
+  // no cabeçalho da requisação existe o Bearer e o token
+  const parts = authHeader.split(' ')
+
+  if (!parts.length === 2) {
+    return res.status(401).json({ error: "Token error" })
+  }
+
+  const [scheme, token] = parts
+
+  if (!/^Bearer$/i.test(scheme)) {
+    return res.status(401).json({ error: "Token malformatted" })
+  }
+
+  jwt.verify(token, authConfig.secret, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ error: "Token invalid" })
+    }
+
+    req.userId = decoded.id
+
+    return next()
+  })
 }
